@@ -1,0 +1,92 @@
+pg_basebackup --xlog-method=fetch|stream --max-rate=N
+	-stream is faster, streams via two sender slots streaming basebackup
+	-max rate limits rate of copy to control speed if needed
+
+
+wal_keep_segments
+	-minimum # of WAL files stored on sender
+	-set higher to avoid losing WAL files
+
+file-based archiving
+	-use third node as archive node
+	-wal_level = archive (or higher)
+	-archive_mode = on
+	-archive_command = 'SEND SCRIPT'
+	-archive_cleanup_command = 'CLEAN SCRIPT'
+
+bi-modal restore
+	-connect to archive and master (not available for logical)
+	-restore_command 
+	-primary_conninfo
+
+replication slots
+	-max_replication_slots
+	-pg_create_physical_replication_slot('slot_name')
+	-SELECT * FROM pg_replication_slots (information about all replication slots)
+	-pg_stat_replication_slots (table of all currently connected replication slots)
+	-primary_slot_name='slot_name' (in recovery.conf)
+
+pg_rewind (>=9.4)
+	-requires wal_log_hints (costly overhead)
+
+deferred apply
+	-causes node to wait to run records for x time, allows for snapshots (USEFUL!)
+	**only delays commit records
+	-recovery_min_apply_delay
+	-pause (SELECT pg_xlog_replay_pause())
+	-resume (SELECT pg_xlog_replay_resume())
+
+hot standby
+	-performance drastically improved
+	-backend_xmin added to pg_stat_replication
+
+new datatype pg_lsn
+	-allows to check lsn if standby is caught up to master
+
+repmgr
+	-clusterware for psql replication
+	-only open source tool to allow management of >2 servers
+	-benefits
+		binary installers on many platforms
+		monitoring and failover
+		best preactice
+		consistent UI
+	-cli tool
+		node-level commands
+		allows scripting actions for whole cluster
+		repmgr.conf
+	-repmgrd
+		cluster monitoring daemon
+		allows witness nodes
+	*relies on single master with standby nodes
+	-all nodes show up in pg_stat_replciation
+	-repl_events table contains log of events
+
+
+Logcial Streaming Replication
+===============================
+UDR feature set
+	-allow online upgrade
+	-logical streaming replication
+	-selective replciation (perticular tables)
+	-data transport
+		app integration
+		roll-up into data warehouse
+		master data management
+	-light version of bdr (doesn't require modified version of postgresql)
+	-no re-execution of functions
+	-only changed data is replicated (before/afer triggers work)
+	-new wal_level=logical
+
+BDR feature set (ETA to core late 2018)
+	-DDL replication via event triggers
+	-logical replication
+	-global sequences
+	-connections defined dynamically
+	-ddl is synchronus only
+	-0.9
+		node metadata is table driven -> nodes can be added and removed dynamically
+	-conflicts
+		bdr.log_conflicts_to_table = on
+		bdr.conflict_logging_include_tuples = on
+		bdr.bdr_conflict_history
